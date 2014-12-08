@@ -44,6 +44,7 @@
         </attr>
         <attr name="swipeDrawableChecked" format="reference"/>
         <attr name="swipeDrawableUnchecked" format="reference"/>
+        <attr name="isInViewPager" format="boolean" />
     </declare-styleable>
 
 </resources>

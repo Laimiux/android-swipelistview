@@ -42,7 +42,7 @@ public class SwipeListView extends ListView {
      * log tag
     */
     public final static String TAG = "SwipeListView";
-	
+    
     /**
     * whether debug
     */
@@ -127,6 +127,10 @@ public class SwipeListView extends ListView {
     int swipeFrontView = 0;
     int swipeBackView = 0;
 
+
+    /** If view pager is parent */
+    boolean isInViewPager;
+
     /**
      * Internal listener for common swipe events
      */
@@ -201,6 +205,7 @@ public class SwipeListView extends ListView {
             swipeDrawableUnchecked = styled.getResourceId(R.styleable.SwipeListView_swipeDrawableUnchecked, 0);
             swipeFrontView = styled.getResourceId(R.styleable.SwipeListView_swipeFrontView, 0);
             swipeBackView = styled.getResourceId(R.styleable.SwipeListView_swipeBackView, 0);
+            isInViewPager = styled.getBoolean(R.styleable.SwipeListView_isInViewPager, false);
             styled.recycle();
         }
 
@@ -215,7 +220,7 @@ public class SwipeListView extends ListView {
 
         final ViewConfiguration configuration = ViewConfiguration.get(getContext());
         touchSlop = ViewConfigurationCompat.getScaledPagingTouchSlop(configuration);
-        touchListener = new SwipeListViewTouchListener(this, swipeFrontView, swipeBackView);
+        touchListener = new SwipeListViewTouchListener(this, swipeFrontView, swipeBackView, isInViewPager);
         if (swipeAnimationTime > 0) {
             touchListener.setAnimationTime(swipeAnimationTime);
         }

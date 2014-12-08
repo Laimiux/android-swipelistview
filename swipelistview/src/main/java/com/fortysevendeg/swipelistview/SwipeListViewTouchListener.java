@@ -104,6 +104,9 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
     private int oldSwipeActionRight;
     private int oldSwipeActionLeft;
 
+    private boolean isInViewPager;
+    private float mViewPagerSwipePercentage = .1f;
+
     /**
      * Constructor
      *
@@ -111,9 +114,11 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
      * @param swipeFrontView front view Identifier
      * @param swipeBackView  back view Identifier
      */
-    public SwipeListViewTouchListener(SwipeListView swipeListView, int swipeFrontView, int swipeBackView) {
+    public SwipeListViewTouchListener(SwipeListView swipeListView, int swipeFrontView, int swipeBackView, boolean isInViewPager) {
         this.swipeFrontView = swipeFrontView;
         this.swipeBackView = swipeBackView;
+        this.isInViewPager = isInViewPager;
+
         ViewConfiguration vc = ViewConfiguration.get(swipeListView.getContext());
         slop = vc.getScaledTouchSlop();
         minFlingVelocity = vc.getScaledMinimumFlingVelocity();
@@ -160,7 +165,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
             }
 
         });
-}
+    }
 
     /**
      * Set current item's back view
@@ -395,6 +400,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
 
     /**
      * Dismiss an item.
+     *
      * @param position is the position of the item to delete.
      * @return 0 if the item is not visible. Otherwise return the height of the cell to dismiss.
      */
@@ -468,7 +474,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
                 count++;
             }
         }
-        if(SwipeListView.DEBUG){
+        if (SwipeListView.DEBUG) {
             Log.d(SwipeListView.TAG, "selected: " + count);
         }
         return count;
@@ -522,7 +528,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
      * @param position  Position of list
      */
     private void generateAnimate(final View view, final boolean swap, final boolean swapRight, final int position) {
-        if(SwipeListView.DEBUG){
+        if (SwipeListView.DEBUG) {
             Log.d(SwipeListView.TAG, "swap: " + swap + " - swapRight: " + swapRight + " - position: " + position);
         }
         if (swipeCurrentAction == SwipeListView.SWIPE_ACTION_REVEAL) {
@@ -764,8 +770,22 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
                 int childCount = swipeListView.getChildCount();
                 int[] listViewCoords = new int[2];
                 swipeListView.getLocationOnScreen(listViewCoords);
-                int x = (int) motionEvent.getRawX() - listViewCoords[0];
+                final float rawX = motionEvent.getRawX();
+                int x = (int) rawX - listViewCoords[0];
                 int y = (int) motionEvent.getRawY() - listViewCoords[1];
+
+                final int width = view.getWidth();
+                final int offset = (int) (width * mViewPagerSwipePercentage);
+                // If isInViewPager and start of swipe is on the edges,
+                // let view pager handle the touch event
+                if (isInViewPager) {
+                    if (rawX < offset || width - offset < rawX) {
+                        return false;
+                    }
+                }
+
+                boolean anyChildHit = false;
+
                 View child;
                 for (int i = 0; i < childCount; i++) {
                     child = swipeListView.getChildAt(i);
@@ -777,6 +797,8 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
                     boolean allowSwipe = swipeListView.getAdapter().isEnabled(childPosition) && swipeListView.getAdapter().getItemViewType(childPosition) >= 0;
 
                     if (allowSwipe && rect.contains(x, y)) {
+                        anyChildHit = true;
+
                         setParentView(child);
                         setFrontView(child.findViewById(swipeFrontView), childPosition);
 
@@ -794,6 +816,12 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
                         break;
                     }
                 }
+
+                // Only if child is hit, disable parent touch intercepting.
+                if(isInViewPager && anyChildHit) {
+                    view.getParent().requestDisallowInterceptTouchEvent(true);
+                }
+
                 view.onTouchEvent(motionEvent);
                 return true;
             }
@@ -801,6 +829,10 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
             case MotionEvent.ACTION_UP: {
                 if (velocityTracker == null || !swiping || downPosition == ListView.INVALID_POSITION) {
                     break;
+                }
+
+                if (isInViewPager) {
+                    view.getParent().requestDisallowInterceptTouchEvent(false);
                 }
 
                 float deltaX = motionEvent.getRawX() - downX;
@@ -820,7 +852,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
                 boolean swapRight = false;
                 if (minFlingVelocity <= velocityX && velocityX <= maxFlingVelocity && velocityY * 2 < velocityX) {
                     swapRight = velocityTracker.getXVelocity() > 0;
-                    if(SwipeListView.DEBUG){
+                    if (SwipeListView.DEBUG) {
                         Log.d(SwipeListView.TAG, "swapRight: " + swapRight + " - swipingRight: " + swipingRight);
                     }
                     if (swapRight != swipingRight && swipeActionLeft != swipeActionRight) {
@@ -894,7 +926,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
                 if (deltaMode > slop && swipeCurrentAction == SwipeListView.SWIPE_ACTION_NONE && velocityY < velocityX) {
                     swiping = true;
                     swipingRight = (deltaX > 0);
-                    if(SwipeListView.DEBUG){
+                    if (SwipeListView.DEBUG) {
                         Log.d(SwipeListView.TAG, "deltaX: " + deltaX + " - swipingRight: " + swipingRight);
                     }
                     if (opened.get(downPosition)) {
@@ -961,7 +993,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
             posX += openedRight.get(downPosition) ? -viewWidth + rightOffset : viewWidth - leftOffset;
         }
         if (posX > 0 && !swipingRight) {
-            if(SwipeListView.DEBUG){
+            if (SwipeListView.DEBUG) {
                 Log.d(SwipeListView.TAG, "change to right");
             }
             swipingRight = !swipingRight;
@@ -973,7 +1005,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
             }
         }
         if (posX < 0 && swipingRight) {
-            if(SwipeListView.DEBUG){
+            if (SwipeListView.DEBUG) {
                 Log.d(SwipeListView.TAG, "change to left");
             }
             swipingRight = !swipingRight;
@@ -1072,6 +1104,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
 
     /**
      * Will call {@link #removePendingDismisses(int)} in animationTime + 100 ms.
+     *
      * @param originalHeight will be used to rest the cells height.
      */
     protected void handlerPendingDismisses(final int originalHeight) {
@@ -1088,6 +1121,7 @@ public class SwipeListViewTouchListener implements View.OnTouchListener {
      * Will delete all pending dismisses.
      * Will call callback onDismiss for all pending dismisses.
      * Will reset all cell height to originalHeight.
+     *
      * @param originalHeight is the height of the cell before animation.
      */
     private void removePendingDismisses(int originalHeight) {
